@@ -1,4 +1,4 @@
-// 控件绑定：祝福输入、主题切换、祝福墙、截图分享。
+// 控件绑定：祝福输入、主题切换、祝福墙（增/删）、截图分享。
 import {
   loadThemeId,
   saveThemeId,
@@ -6,7 +6,9 @@ import {
   nextThemeId,
   getPalette,
 } from './theme.js';
-import { loadWishes, saveWish } from './messages.js';
+import { loadWishes, saveWish, deleteWish, isRemote } from './messages.js';
+
+const ADMIN_KEY_STORE = 'blueheart.adminkey';
 
 export function initUI(scene) {
   // ---- 主题 ----
@@ -27,14 +29,24 @@ export function initUI(scene) {
   // ---- 祝福输入 ----
   const form = document.getElementById('wish-form');
   const input = document.getElementById('wish-input');
-  form.addEventListener('submit', (e) => {
+  const submitBtn = form.querySelector('.btn-primary');
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const entry = saveWish(input.value);
-    if (entry) {
-      scene.addWish(entry.text);
-      renderWishes();
-      input.value = '';
-      input.blur();
+    const text = input.value;
+    if (!text.trim()) return;
+    submitBtn.disabled = true;
+    try {
+      const entry = await saveWish(text);
+      if (entry) {
+        scene.addWish(entry.text);
+        input.value = '';
+        input.blur();
+        if (!panel.hidden) renderWishes();
+      }
+    } catch (err) {
+      alert('发送失败：' + (err.message || err));
+    } finally {
+      submitBtn.disabled = false;
     }
   });
 
@@ -45,25 +57,79 @@ export function initUI(scene) {
   const wishesBtn = document.getElementById('wishes-btn');
   const closeBtn = document.getElementById('wishes-close');
 
-  function renderWishes() {
-    const wishes = loadWishes().slice().reverse();
+  function fmtTime(at) {
+    const d = new Date(at);
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(
+      2,
+      '0'
+    )}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  function getAdminKey(force) {
+    let k = sessionStorage.getItem(ADMIN_KEY_STORE) || '';
+    if (!k || force) {
+      k = window.prompt('请输入管理口令以删除祝福：') || '';
+      if (k) sessionStorage.setItem(ADMIN_KEY_STORE, k);
+    }
+    return k;
+  }
+
+  async function handleDelete(wish, liEl) {
+    let key = '';
+    if (isRemote()) {
+      key = getAdminKey();
+      if (!key) return;
+    }
+    liEl.classList.add('removing');
+    try {
+      await deleteWish(wish.id, key);
+      renderWishes();
+    } catch (err) {
+      liEl.classList.remove('removing');
+      if (String(err.message) === 'unauthorized') {
+        sessionStorage.removeItem(ADMIN_KEY_STORE);
+        alert('管理口令错误，请重试。');
+      } else {
+        alert('删除失败：' + (err.message || err));
+      }
+    }
+  }
+
+  async function renderWishes() {
     list.innerHTML = '';
+    empty.hidden = true;
+    const loading = document.createElement('li');
+    loading.className = 'wishes-loading';
+    loading.textContent = '加载中…';
+    list.appendChild(loading);
+
+    let wishes;
+    try {
+      wishes = await loadWishes();
+    } catch (err) {
+      loading.textContent = '加载失败：' + (err.message || err);
+      loading.classList.add('error');
+      return;
+    }
+
+    list.innerHTML = '';
+    wishes = wishes.slice().reverse(); // 新的在前
     empty.hidden = wishes.length > 0;
+
     for (const w of wishes) {
       const li = document.createElement('li');
-      const d = new Date(w.at);
-      const stamp = `${d.getMonth() + 1}/${d.getDate()} ${String(
-        d.getHours()
-      ).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-      li.innerHTML = `<span class="w-heart">💙</span><span class="w-text"></span><time>${stamp}</time>`;
+      li.innerHTML = `<span class="w-heart">💙</span><span class="w-text"></span><time>${fmtTime(
+        w.at
+      )}</time><button class="w-del" title="删除">🗑</button>`;
       li.querySelector('.w-text').textContent = w.text;
+      li.querySelector('.w-del').addEventListener('click', () => handleDelete(w, li));
       list.appendChild(li);
     }
   }
 
   wishesBtn.addEventListener('click', () => {
-    renderWishes();
     panel.hidden = false;
+    renderWishes();
   });
   closeBtn.addEventListener('click', () => (panel.hidden = true));
 
@@ -87,7 +153,6 @@ export function initUI(scene) {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     } catch (err) {
-      // 用户取消分享等，静默处理
       console.debug('share cancelled', err);
     } finally {
       shareBtn.textContent = prev;
@@ -95,7 +160,12 @@ export function initUI(scene) {
     }
   });
 
-  // 首次加载时，把已存祝福轻轻飞入几颗（不刷屏）
-  const existing = loadWishes().slice(-6);
-  existing.forEach((w, i) => setTimeout(() => scene.addWish(w.text), 600 + i * 350));
+  // 首次加载：把已存祝福轻轻飞入几颗
+  loadWishes()
+    .then((list) => {
+      list.slice(-6).forEach((w, i) =>
+        setTimeout(() => scene.addWish(w.text), 600 + i * 350)
+      );
+    })
+    .catch(() => {});
 }

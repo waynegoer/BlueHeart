@@ -227,6 +227,37 @@ body {
   opacity: 0.55;
   white-space: nowrap;
 }
+.w-del {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  opacity: 0.45;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 8px;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.w-del:hover {
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.18);
+}
+.wishes-list li.removing {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.wishes-loading {
+  list-style: none;
+  padding: 24px 10px;
+  text-align: center;
+  opacity: 0.6;
+  font-size: 14px;
+}
+.wishes-loading.error {
+  color: #fca5a5;
+  opacity: 0.9;
+}
 
 .wishes-empty {
   padding: 40px 24px;
