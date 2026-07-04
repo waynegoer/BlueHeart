@@ -1,4 +1,4 @@
-// 控件绑定：祝福输入、主题切换、祝福墙（增/删）、截图分享。
+// 控件绑定：祝福输入、主题、祝福贴纸层（拖拽/缩放/排版）、祝福墙（删除）、分享。
 import {
   loadThemeId,
   saveThemeId,
@@ -6,11 +6,47 @@ import {
   nextThemeId,
   getPalette,
 } from './theme.js';
-import { loadWishes, saveWish, deleteWish, isRemote } from './messages.js';
+import {
+  loadWishes,
+  saveWish,
+  updateWish,
+  deleteWish,
+  verifyAdmin,
+  isRemote,
+} from './messages.js';
+import { WishesLayer } from './wishesLayer.js';
 
 const ADMIN_KEY_STORE = 'blueheart.adminkey';
 
 export function initUI(scene) {
+  const getKey = () => sessionStorage.getItem(ADMIN_KEY_STORE) || '';
+
+  function promptAdminKey(force) {
+    let k = getKey();
+    if (!k || force) {
+      k = window.prompt('请输入管理口令：') || '';
+      if (k) sessionStorage.setItem(ADMIN_KEY_STORE, k);
+    }
+    return k;
+  }
+
+  // ---- 祝福贴纸层 ----
+  const layer = new WishesLayer(document.getElementById('wishes-layer'), async (wish) => {
+    // 拖拽/缩放结束后保存排版
+    try {
+      return await updateWish(wish.id, wish.text, wish.meta, getKey());
+    } catch (err) {
+      if (String(err.message) === 'unauthorized') {
+        sessionStorage.removeItem(ADMIN_KEY_STORE);
+        exitEdit();
+        alert('管理口令失效，已退出排版模式。');
+      } else {
+        alert('保存失败：' + (err.message || err));
+      }
+      return null;
+    }
+  });
+
   // ---- 主题 ----
   let themeId = loadThemeId();
   applyThemeCss(themeId);
@@ -26,6 +62,38 @@ export function initUI(scene) {
     setTimeout(() => (themeBtn.textContent = '🎨 主题'), 1200);
   });
 
+  // ---- 排版（管理员）----
+  const editBtn = document.getElementById('edit-btn');
+  function exitEdit() {
+    layer.setEditMode(false);
+    editBtn.classList.remove('active');
+    editBtn.textContent = '✏️ 排版';
+  }
+  editBtn.addEventListener('click', async () => {
+    if (layer.editMode) {
+      exitEdit();
+      return;
+    }
+    const key = promptAdminKey();
+    if (!key) return;
+    editBtn.disabled = true;
+    try {
+      const ok = await verifyAdmin(key);
+      if (!ok) {
+        sessionStorage.removeItem(ADMIN_KEY_STORE);
+        alert('管理口令错误。');
+        return;
+      }
+      layer.setEditMode(true);
+      editBtn.classList.add('active');
+      editBtn.textContent = '✅ 完成排版';
+    } catch (err) {
+      alert('校验失败：' + (err.message || err));
+    } finally {
+      editBtn.disabled = false;
+    }
+  });
+
   // ---- 祝福输入 ----
   const form = document.getElementById('wish-form');
   const input = document.getElementById('wish-input');
@@ -38,7 +106,7 @@ export function initUI(scene) {
     try {
       const entry = await saveWish(text);
       if (entry) {
-        scene.addWish(entry.text);
+        layer.add(entry, true); // 飞入并停留
         input.value = '';
         input.blur();
         if (!panel.hidden) renderWishes();
@@ -50,7 +118,7 @@ export function initUI(scene) {
     }
   });
 
-  // ---- 祝福墙抽屉 ----
+  // ---- 祝福墙抽屉（删除）----
   const panel = document.getElementById('wishes-panel');
   const list = document.getElementById('wishes-list');
   const empty = document.getElementById('wishes-empty');
@@ -65,24 +133,16 @@ export function initUI(scene) {
     )}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
 
-  function getAdminKey(force) {
-    let k = sessionStorage.getItem(ADMIN_KEY_STORE) || '';
-    if (!k || force) {
-      k = window.prompt('请输入管理口令以删除祝福：') || '';
-      if (k) sessionStorage.setItem(ADMIN_KEY_STORE, k);
-    }
-    return k;
-  }
-
   async function handleDelete(wish, liEl) {
     let key = '';
     if (isRemote()) {
-      key = getAdminKey();
+      key = promptAdminKey();
       if (!key) return;
     }
     liEl.classList.add('removing');
     try {
       await deleteWish(wish.id, key);
+      layer.remove(wish.id);
       renderWishes();
     } catch (err) {
       liEl.classList.remove('removing');
@@ -113,7 +173,7 @@ export function initUI(scene) {
     }
 
     list.innerHTML = '';
-    wishes = wishes.slice().reverse(); // 新的在前
+    wishes = wishes.slice().reverse();
     empty.hidden = wishes.length > 0;
 
     for (const w of wishes) {
@@ -133,14 +193,14 @@ export function initUI(scene) {
   });
   closeBtn.addEventListener('click', () => (panel.hidden = true));
 
-  // ---- 分享 ----
+  // ---- 分享（把贴纸文字也画进截图）----
   const shareBtn = document.getElementById('share-btn');
   shareBtn.addEventListener('click', async () => {
     shareBtn.disabled = true;
     const prev = shareBtn.textContent;
     shareBtn.textContent = '⏳ 生成中';
     try {
-      const blob = await scene.toShareBlob();
+      const blob = await scene.toShareBlob(layer.getWishes());
       const file = new File([blob], 'blueheart.png', { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: 'BlueHeart 💙' });
@@ -160,12 +220,8 @@ export function initUI(scene) {
     }
   });
 
-  // 首次加载：把已存祝福轻轻飞入几颗
+  // ---- 首屏加载祝福并铺到贴纸层 ----
   loadWishes()
-    .then((list) => {
-      list.slice(-6).forEach((w, i) =>
-        setTimeout(() => scene.addWish(w.text), 600 + i * 350)
-      );
-    })
-    .catch(() => {});
+    .then((wishes) => layer.setWishes(wishes))
+    .catch((err) => console.warn('加载祝福失败：', err));
 }

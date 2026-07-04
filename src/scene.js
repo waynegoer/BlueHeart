@@ -10,7 +10,6 @@ export class Scene {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.particles = [];
     this.sprites = [];
-    this.wishes = []; // 带文字的高亮小爱心
     this.cx = 0;
     this.cy = 0;
     this.time = 0;
@@ -73,13 +72,6 @@ export class Scene {
       makeHeartSprite(spritePx, c, palette.glow)
     );
     this.spritePx = spritePx;
-    // 祝福用的高亮 sprite
-    this.wishSprite = makeHeartSprite(
-      Math.ceil(this.baseSize * 3 * this.dpr),
-      palette.accent,
-      palette.glow
-    );
-    this.wishSpritePx = Math.ceil(this.baseSize * 3 * this.dpr);
   }
 
   _bindPointer() {
@@ -99,27 +91,6 @@ export class Scene {
       x: (e.clientX - rect.left) * this.dpr,
       y: (e.clientY - rect.top) * this.dpr,
     };
-  }
-
-  // 送出一句祝福：一颗高亮小爱心从边缘飞向大爱心中心区域
-  addWish(text) {
-    const angle = Math.random() * Math.PI * 2;
-    const R = Math.max(this.cssWidth, this.cssHeight); // 从画面外飞入（CSS 坐标）
-    // 目标落点：大爱心内偏上区域
-    const tX = this.cx + (Math.random() - 0.5) * this.cssWidth * 0.35;
-    const tY =
-      this.cy - this.cssHeight * 0.06 + (Math.random() - 0.5) * this.cssHeight * 0.2;
-    this.wishes.push({
-      text,
-      x: this.cx + Math.cos(angle) * R,
-      y: this.cy + Math.sin(angle) * R,
-      tx: tX,
-      ty: tY,
-      vx: 0,
-      vy: 0,
-      born: this.time,
-    });
-    if (this.wishes.length > 40) this.wishes.shift();
   }
 
   _beatScale() {
@@ -147,14 +118,11 @@ export class Scene {
 
   _step(dt) {
     const ctx = this.ctx;
-    const palette = getPalette(this.paletteId);
 
     // 背景
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     const beat = this._beatScale();
-    const dprCx = this.cx * this.dpr;
-    const dprCy = this.cy * this.dpr;
 
     // 点击斥力衰减
     if (this.pointer) {
@@ -178,7 +146,6 @@ export class Scene {
 
       const sprite = this.sprites[p.spriteIndex] || this.sprites[0];
       const tw = this.reduceMotion ? 1 : 0.7 + Math.sin(p.phase) * 0.3 * p.twinkle;
-      const size = this.baseSize * p.sizeScale * (this.spritePx / (this.baseSize * 2 * this.dpr));
       const drawPx = this.baseSize * p.sizeScale * this.dpr * 1.4;
       ctx.globalAlpha = 0.55 + tw * 0.45;
       ctx.drawImage(
@@ -192,45 +159,10 @@ export class Scene {
 
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-
-    // 祝福小爱心
-    for (const w of this.wishes) {
-      const stiffness = 0.045;
-      const damping = 0.86;
-      w.vx += (w.tx - w.x) * stiffness;
-      w.vy += (w.ty - w.y) * stiffness;
-      w.vx *= damping;
-      w.vy *= damping;
-      w.x += w.vx;
-      w.y += w.vy;
-
-      const drawPx = this.baseSize * this.dpr * 4;
-      ctx.drawImage(
-        this.wishSprite,
-        w.x * this.dpr - drawPx / 2,
-        w.y * this.dpr - drawPx / 2,
-        drawPx,
-        drawPx
-      );
-      // 文字
-      const age = this.time - w.born;
-      const alpha = Math.max(0, 1 - age / 6);
-      if (alpha > 0.02) {
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = palette.text;
-        ctx.font = `${Math.round(12 * this.dpr)}px system-ui, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillText(w.text, w.x * this.dpr, w.y * this.dpr - drawPx * 0.6);
-        ctx.restore();
-      }
-    }
-    // 过期祝福文字淡出后移除小爱心（保留少量常驻）
-    this.wishes = this.wishes.filter((w) => this.time - w.born < 400);
   }
 
-  // 生成分享用的 PNG（带背景与标题）
-  toShareBlob() {
+  // 生成分享用的 PNG（背景 + 爱心 + 祝福文字贴纸 + 水印）
+  toShareBlob(wishes = []) {
     return new Promise((resolve) => {
       const palette = getPalette(this.paletteId);
       const out = document.createElement('canvas');
@@ -244,11 +176,27 @@ export class Scene {
       c.fillStyle = g;
       c.fillRect(0, 0, out.width, out.height);
       c.drawImage(this.canvas, 0, 0);
+
+      // 祝福文字贴纸（按各自位置与字号）
+      c.textAlign = 'center';
+      c.textBaseline = 'middle';
+      for (const w of wishes) {
+        if (!w.meta) continue;
+        const px = w.meta.x * out.width;
+        const py = w.meta.y * out.height;
+        const fs = w.meta.size * this.dpr;
+        c.font = `600 ${Math.round(fs)}px system-ui, sans-serif`;
+        c.fillStyle = palette.accent;
+        c.shadowColor = palette.glow;
+        c.shadowBlur = fs * 0.6;
+        c.fillText('💙 ' + w.text, px, py);
+        c.shadowBlur = 0;
+      }
+
       // 水印
       c.fillStyle = palette.text;
       c.globalAlpha = 0.7;
       c.font = `${Math.round(16 * this.dpr)}px system-ui, sans-serif`;
-      c.textAlign = 'center';
       c.fillText('BlueHeart 💙', out.width / 2, out.height - 24 * this.dpr);
       out.toBlob((b) => resolve(b), 'image/png');
     });

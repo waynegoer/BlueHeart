@@ -7,9 +7,14 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `GET` | `/wishes` | 列出全部祝福 |
-| `POST` | `/wishes`  body `{ "text": "..." }` | 新增祝福（任何人） |
+| `GET` | `/wishes` | 列出全部祝福（含排版信息 `{x,y,size}`） |
+| `POST` | `/wishes`  body `{ "text": "...", "meta": {x,y,size} }` | 新增祝福（任何人） |
+| `PATCH` | `/wishes/:id` header `x-admin-key` body `{text, meta}` | 更新文字/排版（仅管理员，用于保存拖拽缩放） |
 | `DELETE` | `/wishes/:id` header `x-admin-key: <口令>` | 删除祝福（仅管理员） |
+| `GET` | `/verify` header `x-admin-key` | 校验管理口令（进入排版模式时用） |
+
+> 排版信息 `{x,y,size}` 编码在评论正文末尾的 HTML 注释里（如 `<!-- bh:{...} -->`），
+> 不影响 Issue 页面对祝福文字的正常显示。
 
 ## 一次性部署步骤
 

@@ -45,6 +45,75 @@ body {
   touch-action: none;
 }
 
+/* ---- 祝福贴纸层 ---- */
+.wishes-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none; /* 非编辑态：不拦截，爱心可点击 */
+  overflow: hidden;
+}
+.wishes-layer.editing {
+  pointer-events: none; /* 容器不拦，交给贴纸自身 */
+}
+
+.wish-sticker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  white-space: nowrap;
+  color: var(--accent);
+  font-weight: 600;
+  text-shadow: 0 0 12px var(--glow), 0 1px 2px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease;
+  will-change: transform;
+}
+.wish-sticker .ws-heart {
+  font-size: 0.9em;
+}
+.wish-sticker.flyin {
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 48px)) scale(0.5);
+}
+
+/* 编辑态：贴纸可交互 */
+.wishes-layer.editing .wish-sticker {
+  pointer-events: auto;
+  cursor: grab;
+  padding: 2px 6px;
+  border-radius: 8px;
+  outline: 1px dashed rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+}
+.wishes-layer.editing .wish-sticker.dragging {
+  cursor: grabbing;
+  outline-color: var(--accent);
+  transition: none;
+}
+.wish-sticker.saving {
+  opacity: 0.6;
+}
+
+/* 缩放/字号手柄（仅编辑态显示） */
+.ws-handle {
+  display: none;
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  cursor: nwse-resize;
+}
+.wishes-layer.editing .ws-handle {
+  display: block;
+}
+
 /* ---- HUD ---- */
 .hud {
   position: absolute;

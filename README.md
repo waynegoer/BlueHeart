@@ -8,7 +8,8 @@
 
 - **爱心由爱心组成**：数百颗小蓝爱心按心形数学曲线聚拢，构成一颗大爱心。
 - **心跳动画**：整颗爱心以 “lub-dub” 双段节律脉动，小爱心随机闪烁浮动。
-- **送祝福 / 留言（存到 GitHub）**：写一句话，一颗带文字的高亮小爱心飞入大爱心；祝福通过 Cloudflare Worker 保存到 **GitHub Issues**，跨设备共享，可在“祝福墙”查看与删除（删除需管理口令）。未配置 Worker 时自动回退到本地 localStorage。部署见 [worker/README.md](worker/README.md)。
+- **送祝福 / 留言（存到 GitHub）**：写一句话，祝福化作一张文字贴纸飞入并停留在大爱心上；通过 Cloudflare Worker 保存到 **GitHub Issues**，跨设备共享。可在“祝福墙”查看与删除。未配置 Worker 时自动回退到本地 localStorage。部署见 [worker/README.md](worker/README.md)。
+- **排版祝福（管理员）**：输入管理口令进入「✏️ 排版」模式后，可**拖拽移动**每条祝福、拖右下角手柄**缩放/改字号**，松手即保存到 GitHub；普通访客只看不动（也不会挡住爱心点击）。删除同样需要管理口令。
 - **多种蓝色主题**：深海蓝 / 天空蓝 / 蓝紫渐变 / 浅色冰蓝，随点随换，记住选择。
 - **点击互动**：点击或触摸画面，附近小爱心散开后再缓缓归位。
 - **一键分享**：截图当前画面为 PNG，移动端支持系统分享，桌面端下载图片。
@@ -54,8 +55,9 @@ src/
 ├─ scene.js      渲染循环 / 心跳 / 点击 / 祝福飞入 / 截图
 ├─ theme.js      蓝色调色板与主题切换
 ├─ messages.js   祝福留言（Worker→GitHub Issues，回退 localStorage）
+├─ wishesLayer.js 祝福文字贴纸层（拖拽/缩放/排版）
 ├─ config.js     Worker 地址配置（VITE_WISHES_API）
-├─ ui.js         控件绑定（含删除）
+├─ ui.js         控件绑定（含排版/删除）
 └─ style.css     布局与样式
 worker/          Cloudflare Worker 祝福代理（见 worker/README.md）
 ```

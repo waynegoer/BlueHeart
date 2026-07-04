@@ -11,6 +11,8 @@
   <body>
     <div id="app">
       <canvas id="scene"></canvas>
+      <!-- 祝福文字贴纸层（覆盖在 canvas 上） -->
+      <div id="wishes-layer"></div>
 
       <!-- 顶部标题 -->
       <header class="hud hud-top">
@@ -26,6 +28,7 @@
         </form>
         <div class="tools">
           <button id="theme-btn" class="btn" title="切换主题">🎨 主题</button>
+          <button id="edit-btn" class="btn" title="排版祝福（管理员）">✏️ 排版</button>
           <button id="wishes-btn" class="btn" title="查看祝福">💬 祝福</button>
           <button id="share-btn" class="btn" title="截图分享">📷 分享</button>
         </div>
