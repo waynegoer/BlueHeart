@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a1a3f" />
+    <title>BlueHeart · 蓝色爱心</title>
+    <meta name="description" content="由许多小蓝爱心组成的一颗大蓝爱心。" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%233b82f6' d='M12 21s-7.5-4.9-10-9.2C.2 8.5 1.6 5 5 5c2 0 3.2 1.1 4 2.3C9.8 6.1 11 5 13 5c3.4 0 4.8 3.5 3 6.8C19.5 16.1 12 21 12 21z'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <!-- 顶部标题 -->
+      <header class="hud hud-top">
+        <h1 class="title">Blue<span>Heart</span></h1>
+        <p class="subtitle">由许多小蓝爱心组成的一颗大蓝爱心</p>
+      </header>
+
+      <!-- 底部控件 -->
+      <div class="hud hud-bottom">
+        <form id="wish-form" class="wish">
+          <input id="wish-input" type="text" maxlength="24" placeholder="写一句祝福，让它飞进爱心…" autocomplete="off" />
+          <button type="submit" class="btn btn-primary" title="送出祝福">送出</button>
+        </form>
+        <div class="tools">
+          <button id="theme-btn" class="btn" title="切换主题">🎨 主题</button>
+          <button id="wishes-btn" class="btn" title="查看祝福">💬 祝福</button>
+          <button id="share-btn" class="btn" title="截图分享">📷 分享</button>
+        </div>
+      </div>
+
+      <!-- 祝福列表抽屉 -->
+      <aside id="wishes-panel" class="panel" hidden>
+        <div class="panel-head">
+          <span>💙 祝福墙</span>
+          <button id="wishes-close" class="btn btn-icon" title="关闭">✕</button>
+        </div>
+        <ul id="wishes-list" class="wishes-list"></ul>
+        <p id="wishes-empty" class="wishes-empty">还没有祝福，快写下第一句吧。</p>
+      </aside>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
