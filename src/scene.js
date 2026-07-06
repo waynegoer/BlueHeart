@@ -1,6 +1,6 @@
 // Canvas 场景：渲染循环、心跳、点击互动、resize、祝福小爱心飞入、截图。
-import { generateHeartPoints } from './heart.js';
-import { Particle, makeHeartSprite } from './particle.js';
+import { generateHeartPoints, heartPoint } from './heart.js';
+import { Particle, Drifter, makeHeartSprite } from './particle.js';
 import { getPalette } from './theme.js';
 
 export class Scene {
@@ -10,6 +10,9 @@ export class Scene {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.particles = [];
     this.sprites = [];
+    this.outline = []; // 心形轮廓点（飘散粒子的出生位置）
+    this.drifters = []; // 外围飘散粒子池
+    this.spawnAcc = 0;
     this.cx = 0;
     this.cy = 0;
     this.time = 0;
@@ -57,6 +60,15 @@ export class Scene {
     });
 
     this.baseSize = Math.max(6, scale * 0.9); // 单颗小爱心的基础像素尺寸
+
+    // 采样心形轮廓（与成形粒子相同的变换），作为飘散粒子的出生点
+    this.outline = [];
+    const N = 160;
+    for (let i = 0; i < N; i++) {
+      const { x, y } = heartPoint((i / N) * Math.PI * 2);
+      this.outline.push({ x: cx + x * scale, y: cy - y * scale });
+    }
+
     this._buildSprites();
   }
 
@@ -157,8 +169,42 @@ export class Scene {
       );
     }
 
+    // 外围飘散：持续从轮廓向外+上飘散出小爱心
+    this._spawnDrifters(dt);
+    for (const d of this.drifters) {
+      if (d.dead) continue;
+      d.update(dt);
+      if (d.dead) continue;
+      const sprite = this.sprites[d.spriteIndex] || this.sprites[0];
+      const drawPx = this.baseSize * d.sizeScale * this.dpr * 1.4;
+      ctx.globalAlpha = d.alpha * 0.85;
+      ctx.save();
+      ctx.translate(d.x * this.dpr, d.y * this.dpr);
+      ctx.rotate(d.rot);
+      ctx.drawImage(sprite, -drawPx / 2, -drawPx / 2, drawPx, drawPx);
+      ctx.restore();
+    }
+
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+  }
+
+  _spawnDrifters(dt) {
+    if (this.reduceMotion || !this.outline.length) return;
+    const interval = 0.13; // 轻柔点缀：约每 0.13s 一颗
+    const cap = 50;
+    this.spawnAcc += dt;
+    while (this.spawnAcc >= interval) {
+      this.spawnAcc -= interval;
+      let d = this.drifters.find((x) => x.dead);
+      if (!d) {
+        if (this.drifters.length >= cap) break;
+        d = new Drifter();
+        this.drifters.push(d);
+      }
+      const pt = this.outline[(Math.random() * this.outline.length) | 0];
+      d.reset(pt, this.cx, this.cy, this.baseSize);
+    }
   }
 
   // 生成分享用的 PNG（背景 + 爱心 + 祝福文字贴纸 + 水印）

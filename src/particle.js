@@ -95,3 +95,58 @@ export class Particle {
     }
   }
 }
+
+// 外围飘散粒子：从轮廓向外扩散并带上飘，自转、淡出后回收。全部以 CSS 坐标计算。
+export class Drifter {
+  constructor() {
+    this.dead = true;
+  }
+
+  // 在给定轮廓点复活，初速朝“由中心指向该点”的向外方向 + 上飘偏置。
+  reset(pt, cx, cy, baseSize) {
+    this.x = pt.x;
+    this.y = pt.y;
+    let nx = pt.x - cx;
+    let ny = pt.y - cy;
+    const len = Math.hypot(nx, ny) || 1;
+    nx /= len;
+    ny /= len;
+    const speed = 15 + Math.random() * 25; // 向外 15~40 px/s
+    this.vx = nx * speed;
+    this.vy = ny * speed - (10 + Math.random() * 15); // 叠加上飘
+    this.maxLife = 3.5 + Math.random() * 3; // 3.5~6.5s
+    this.life = this.maxLife;
+    this.sizeScale = 0.45 + Math.random() * 0.5;
+    this.baseSize = baseSize;
+    this.rot = Math.random() * Math.PI * 2;
+    this.vrot = (Math.random() - 0.5) * 1.2;
+    this.spriteIndex = Math.floor(Math.random() * 4);
+    this.swayAmp = 6 + Math.random() * 10;
+    this.swayFreq = 0.6 + Math.random() * 0.8;
+    this.seed = Math.random() * Math.PI * 2;
+    this.dead = false;
+  }
+
+  update(dt) {
+    this.life -= dt;
+    if (this.life <= 0) {
+      this.dead = true;
+      return;
+    }
+    this.vx *= 0.99; // 轻微阻尼
+    this.vy = this.vy * 0.99 - 4 * dt; // 持续上飘
+    const age = this.maxLife - this.life;
+    const sway = Math.cos(age * this.swayFreq + this.seed) * this.swayAmp * dt;
+    this.x += this.vx * dt + sway;
+    this.y += this.vy * dt;
+    this.rot += this.vrot * dt;
+  }
+
+  // 透明度：前 0.4s 渐入，随后随剩余寿命淡出。
+  get alpha() {
+    const age = this.maxLife - this.life;
+    const fadeIn = Math.min(1, age / 0.4);
+    const fadeOut = Math.min(1, this.life / (this.maxLife * 0.6));
+    return fadeIn * fadeOut;
+  }
+}
